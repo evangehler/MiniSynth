@@ -28,19 +28,20 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
     float osc_out, filtered;
 
     // Read knobs
-    float cutoff_pot 	= hw.adc.GetFloat(0); // A0
-    float q_pot  		= hw.adc.GetFloat(1); // A1
-	float env_amt 		= hw.adc.GetFloat(2); // A3
+    float cutoff_pot 	= hw.adc.GetFloat(0); 	// A0
+    float q_pot  		= hw.adc.GetFloat(1); 	// A1
+	float env_amt 		= hw.adc.GetFloat(2); 	// A3
     
 	// Map
-	float base_cutoff    = fmap(cutoff_pot, 20.f, 10000.f);
-    float q      	= fmap(q_pot, 0.1f, 1.5f);
-	float depth 	= fmap(env_amt, 0.f, 4000.f); // max mod depth (Hz)
+	float base_cutoff   = fmap(cutoff_pot, 20.f, 10000.f);
+	float q      		= fmap(q_pot, 0.1f, 1.5f);
+	float depth 		= fmap(env_amt, 0.f, 4000.f); // max mod depth (Hz)
 
 	// Compute final cutoff
 	float mod_cutoff = base_cutoff + (env_out * depth);
 	mod_cutoff = fclamp(mod_cutoff, 20.f, 18000.f); // clamp
 	
+	// Just in case
 	float midi_base  = 36.0f;
 
     if (current_note >= 0)
@@ -132,7 +133,8 @@ int main(void)
     hw.StartAudio(AudioCallback);
 
     while(1)
-    {
+	// READ MIDI
+	{
         midi.Listen();
         while(midi.HasEvents())
         {
