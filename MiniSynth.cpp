@@ -299,7 +299,7 @@ int main(void)
 			// 3) quantize Q to two decimals (i.e. 0.00–1.50 → 0–150)
 			int q_i       = int(raw_q * 100.0f + 0.5f);
 	
-			// 4) only redraw if *any* of the three changed
+			// 4) only redraw if changed
 			if(cut_i != last_cut_i ||
 			   env_i != last_env_i ||
 			   q_i   != last_q_int ||
@@ -310,7 +310,7 @@ int main(void)
 				last_q_int   = q_i;
 				last_note	 = current_note;
 	
-				// 5) snapshot into your display_* vars
+				// 5) snapshot into your display vars
 				display_cutoff  = float(cut_i);
 				display_env_amt = float(env_i);
 				display_q       = float(q_i) / 100.0f;
