@@ -24,6 +24,8 @@ float display_env_amt = 0.f;
 static int  last_cut_i = -1;
 static int  last_env_i = -1;
 static int last_q_int  = -1;
+static int last_note = -2;
+
 
 // OLED
 OledDisplay<SSD130xI2c128x64Driver> display;
@@ -168,13 +170,13 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
 	int q_whole = q_int / 100;
 	int q_frac  = q_int % 100;
 	display.SetCursor(0, 30);
-	std::snprintf(buf, sizeof(buf), "Q: %d.%02d", q_whole, q_frac);
+	std::snprintf(buf, sizeof(buf), "Res: %d.%02d", q_whole, q_frac);
 	display.WriteString(buf, Font_6x8, true);
 
 	// ——— Env→Cut (int) ———
 	int env_i = int(display_env_amt + 0.5f);
 	display.SetCursor(0, 40);
-	std::snprintf(buf, sizeof(buf), "Env->Cut: %d", env_i);
+	std::snprintf(buf, sizeof(buf), "Filt Env: %d", env_i);
 	display.WriteString(buf, Font_6x8, true);
 
 	display.Update();
@@ -300,11 +302,13 @@ int main(void)
 			// 4) only redraw if *any* of the three changed
 			if(cut_i != last_cut_i ||
 			   env_i != last_env_i ||
-			   q_i   != last_q_int)
+			   q_i   != last_q_int ||
+			   current_note != last_note)
 			{
 				last_cut_i   = cut_i;
 				last_env_i   = env_i;
 				last_q_int   = q_i;
+				last_note	 = current_note;
 	
 				// 5) snapshot into your display_* vars
 				display_cutoff  = float(cut_i);
