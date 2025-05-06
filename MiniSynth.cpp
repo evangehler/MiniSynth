@@ -6,12 +6,24 @@ using namespace daisy;
 using namespace daisy::seed;
 using namespace daisysp;
 
-// Global objects
+// Global objects //
 DaisySeed hw;
-int current_note = -1;
-float cutoff = 0.f, q = 0.f, env_mod_amount = 0.f; // real-time
-float display_cutoff = 0.f, display_q = 0.f, display_env_amt = 0.f; // display copies
 
+// Real time values
+int current_note = -1;
+float cutoff = 0.f;
+float q = 0.f;
+float env_mod_amount = 0.f;
+
+// Display copies
+float display_cutoff = 0.f; 
+float display_q = 0.f; 
+float display_env_amt = 0.f;
+
+// Smoothed display ints
+static int  last_cut_i = -1;
+static int  last_env_i = -1;
+static int last_q_int  = -1;
 
 // OLED
 OledDisplay<SSD130xI2c128x64Driver> display;
@@ -19,18 +31,24 @@ OledDisplay<SSD130xI2c128x64Driver> display;
 // MIDI
 MidiUsbHandler midi;
 
-// Synth
-Oscillator osc;
-Svf       filter;
-AdEnv     env;
-Switch    button1;
+// Synth Parts
+Oscillator 	osc;
+Svf       	filter;
+AdEnv     	env;
+Switch    	button1; // unused rn
 
 // Envelope Stages
 enum EnvStage { ENV_IDLE, ENV_ATTACK, ENV_HOLD, ENV_DECAY };
 EnvStage current_stage = ENV_IDLE;
 float env_out = 0.0f;
 
-// Per Sample
+// MIDI Note Display
+static const char* noteNames[12] = {
+	"C", "C#", "D", "D#", "E", "F",
+	"F#", "G", "G#", "A", "A#", "B"
+  };
+
+// Per Sample Function
 void AudioCallback(AudioHandle::InterleavingInputBuffer in,
                    AudioHandle::InterleavingOutputBuffer out,
                    size_t size)
@@ -42,9 +60,16 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
     float q_pot  		= hw.adc.GetFloat(1); 	// A1
 	float env_amt 		= hw.adc.GetFloat(2); 	// A3
     
-	// Map
-	cutoff   			= fmap(cutoff_pot, 40.f, 10000.f);
+	//--- POT MAPS ---//
+	// Cutoff (Log)
+	float minFc = 40.f;
+	float maxFc = 10000.f;
+	cutoff = minFc * powf(maxFc/minFc, cutoff_pot);
+	
+	// Resonance
 	q      				= fmap(q_pot, 0.1f, 1.5f);
+	
+	// Filter Mod (Env)
 	env_mod_amount		= fmap(env_amt, 0.f, 4000.f); // max mod depth (Hz)
 
 	// Make display-safe copies
@@ -105,13 +130,8 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
         out[i + 1] = filtered;
     }
 }
-
-// OLED Updating
-static const char* noteNames[12] = {
-	"C", "C#", "D", "D#", "E", "F",
-	"F#", "G", "G#", "A", "A#", "B"
-  };
-  
+ 
+// Update OLED 
   void UpdateDisplay()
   {
 
@@ -256,17 +276,43 @@ int main(void)
 			}
 		}
         // Update OLED every 1000 loop cycles
-        if(++frame_counter >= 1000)
-        {
-            frame_counter = 0;
+		if(++frame_counter >= 1000)
+		{
+			frame_counter = 0;
 
-            // Take a snapshot of the real-time values
-            display_cutoff   = cutoff;
-            display_q        = q;
-            display_env_amt  = env_mod_amount;
-
-            // Now safe to display
-            UpdateDisplay();
-        }
+			// 1) snapshot raw floats
+			float raw_cut = cutoff;
+			float raw_env = env_mod_amount;
+			float raw_q   = q;
+	
+			// 2) round & quantize cutoff/env as before
+			int cut_i     = int(raw_cut + 0.5f);
+			const int CUT_STEP = 10;
+			cut_i         = ((cut_i + CUT_STEP/2) / CUT_STEP) * CUT_STEP;
+	
+			int env_i     = int(raw_env + 0.5f);
+			const int ENV_STEP = 100;
+			env_i         = ((env_i + ENV_STEP/2) / ENV_STEP) * ENV_STEP;
+	
+			// 3) quantize Q to two decimals (i.e. 0.00–1.50 → 0–150)
+			int q_i       = int(raw_q * 100.0f + 0.5f);
+	
+			// 4) only redraw if *any* of the three changed
+			if(cut_i != last_cut_i ||
+			   env_i != last_env_i ||
+			   q_i   != last_q_int)
+			{
+				last_cut_i   = cut_i;
+				last_env_i   = env_i;
+				last_q_int   = q_i;
+	
+				// 5) snapshot into your display_* vars
+				display_cutoff  = float(cut_i);
+				display_env_amt = float(env_i);
+				display_q       = float(q_i) / 100.0f;
+	
+				UpdateDisplay();
+			}
+		}
 	}
 }
