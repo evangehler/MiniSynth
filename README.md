@@ -1,9 +1,4 @@
 # MiniSynth
+WIP monosynth with Daisy Seed
 
-## Author
-
-<!-- Insert Your Name Here -->
-
-## Description
-
-<!-- Describe your example here -->
+Requires libDaisy / DaisySP libraries
