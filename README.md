@@ -12,6 +12,6 @@
 
 ## Future Updates:
 * Variable Waveforms
-* Portmanteau
+* Portamento
 * More Envelope Control
 
