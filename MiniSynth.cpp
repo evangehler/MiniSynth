@@ -6,40 +6,40 @@ using namespace daisy;
 using namespace daisy::seed;
 using namespace daisysp;
 
-// Global objects //
-DaisySeed hw;
+// ─── Hardware & MIDI ───────────────────────────────────
+DaisySeed            hw;
+MidiUsbHandler       midi;
 
-// Real time values
-int current_note = -1;
-float cutoff = 0.f;
-float q = 0.f;
+// ─── Synth Parts ────────────────────────────────────────
+Oscillator           osc;      // primary saw
+Oscillator           osc2;     // detuned saw
+Svf                  filter;
+AdEnv                env;
+
+// ─── Display Copies ──────────────────────────────────────
+float display_cutoff      = 0.f;
+float display_q           = 0.f;
+float display_env_amt     = 0.f;
+float display_detune_cents= 0.f;
+
+// ─── Real‑Time Params ─────────────────────────────────────
+int   current_note   = -1;
+float cutoff         = 0.f;
+float q              = 0.f;
 float env_mod_amount = 0.f;
+float detune_cents   = 0.f;
 
-// Display copies
-float display_cutoff = 0.f; 
-float display_q = 0.f; 
-float display_env_amt = 0.f;
+// ─── OLED  ──────────────────────────────────────────────────
+OledDisplay<SSD130xI2c128x64Driver> display;
 
-// Smoothed display ints
+// ─── Smoothed Display Ints ──────────────────────────────────
 static int  last_cut_i = -1;
 static int  last_env_i = -1;
 static int last_q_int  = -1;
 static int last_note = -2;
 
 
-// OLED
-OledDisplay<SSD130xI2c128x64Driver> display;
-
-// MIDI
-MidiUsbHandler midi;
-
-// Synth Parts
-Oscillator 	osc;
-Svf       	filter;
-AdEnv     	env;
-Switch    	button1; // unused rn
-
-// Envelope Stages
+// ─── Envelope State ─────────────────────────────────────────
 enum EnvStage { ENV_IDLE, ENV_ATTACK, ENV_HOLD, ENV_DECAY };
 EnvStage current_stage = ENV_IDLE;
 float env_out = 0.0f;
@@ -55,12 +55,13 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
                    AudioHandle::InterleavingOutputBuffer out,
                    size_t size)
 {
-    float osc_out, filtered;
+    float filtered;
 
     // Read knobs
-    float cutoff_pot 	= hw.adc.GetFloat(0); 	// A0
-    float q_pot  		= hw.adc.GetFloat(1); 	// A1
-	float env_amt 		= hw.adc.GetFloat(2); 	// A3
+    float cutoff_pot 		= hw.adc.GetFloat(0); 	// A0
+    float q_pot  			= hw.adc.GetFloat(1); 	// A1
+	float env_amt 			= hw.adc.GetFloat(2); 	// A2
+	float det_pot 			= hw.adc.GetFloat(3);
     
 	//--- POT MAPS ---//
 	// Cutoff (Log)
@@ -69,15 +70,19 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
 	cutoff = minFc * powf(maxFc/minFc, cutoff_pot);
 	
 	// Resonance
-	q      				= fmap(q_pot, 0.1f, 1.5f);
+	q      					= fmap(q_pot, 0.1f, 1.5f);
 	
 	// Filter Mod (Env)
-	env_mod_amount		= fmap(env_amt, 0.f, 4000.f); // max mod depth (Hz)
+	env_mod_amount			= fmap(env_amt, 0.f, 4000.f); // max mod depth (Hz)
+
+	// Detune 
+	detune_cents 			= fmap(det_pot, -50.f, 50.f);
 
 	// Make display-safe copies
-	display_cutoff = cutoff;
-	display_q = q;
-	display_env_amt = env_mod_amount;
+	display_cutoff 			= cutoff;
+	display_q 				= q;
+	display_env_amt 		= env_mod_amount;
+	display_detune_cents	= detune_cents;
 
 	// Compute final cutoff
 	float mod_cutoff = cutoff + (env_out * env_mod_amount);
@@ -90,7 +95,16 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
         osc.SetFreq(mtof(current_note));
     else
         osc.SetFreq(mtof(midi_base)); // fallback
+	
+   	// Base frequency
+    float base_hz = mtof(current_note >= 0 ? current_note : int(midi_base));
+    // Primary
+    osc.SetFreq(base_hz);
+    // Detuned: cents → ratio
+    float ratio = powf(2.f, detune_cents / 1200.f);
+    osc2.SetFreq(base_hz * ratio);
 
+	// Set Filter
     filter.SetFreq(mod_cutoff);
 	filter.SetRes(q);
 
@@ -124,12 +138,19 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
 
     for(size_t i = 0; i < size; i += 2)
     {
-        osc.SetAmp(env_out);
-        osc_out = osc.Process();
-        filter.Process(osc_out);
-        filtered = filter.Low();
-        out[i]     = filtered;
-        out[i + 1] = filtered;
+		// Oscs
+		osc.SetAmp(env_out);
+		osc2.SetAmp(env_out);
+
+		float s1 = osc.Process();
+		float s2 = osc2.Process();
+		float mixed = 0.5f * (s1 + s2);
+
+		filter.Process(mixed);
+		filtered = filter.Low();
+
+		out[i    ] = filtered;
+		out[i + 1] = filtered;
     }
 }
  
@@ -214,21 +235,28 @@ int main(void)
     midi.Init(midi_cfg);
 
     // ADC Setup
-    AdcChannelConfig adc_cfg[3];
+    AdcChannelConfig adc_cfg[4];
     adc_cfg[0].InitSingle(hw.GetPin(15)); // A0: cutoff
     adc_cfg[1].InitSingle(hw.GetPin(16)); // A1: Q / reso
 	adc_cfg[2].InitSingle(hw.GetPin(17)); // A2: Filter Env Depth
+	adc_cfg[3].InitSingle(hw.GetPin(18)); // A3: Detune Knob
 
-    hw.adc.Init(adc_cfg, 3);
+    hw.adc.Init(adc_cfg, 4);
     hw.adc.Start();
-
-    // Modules
     float sr = hw.AudioSampleRate();
+	
+	// ─── Oscillator Inits ───────────────────────────────────────
     osc.Init(sr);
     osc.SetWaveform(Oscillator::WAVE_SAW);
     osc.SetAmp(1.f);
     osc.SetFreq(220.f);
 
+	osc2.Init(sr);
+    osc2.SetWaveform(Oscillator::WAVE_SAW);
+    osc2.SetAmp(1.f);
+	osc2.SetFreq(220.f);
+
+	// ─── Filter / Env Inits ──────────────────────────────────────
     filter.Init(sr);
     filter.SetRes(0.5f);
     filter.SetFreq(1000.f);
