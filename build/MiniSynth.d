@@ -200,7 +200,7 @@ build/MiniSynth.o: MiniSynth.cpp \
  ../../DaisySP//Source/Utility/metro.h \
  ../../DaisySP//Source/Utility/samplehold.h \
  ../../DaisySP//Source/Utility/smooth_random.h \
- ../../libDaisy//src/dev/oled_ssd130x.h PolyBleP_Saw.h
+ ../../libDaisy//src/dev/oled_ssd130x.h PolyBleP_Saw.h BiquadLP.h LP4th.h
 ../../libDaisy//Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h7xx.h:
 ../../libDaisy//Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h750xx.h:
 ../../libDaisy//Drivers/CMSIS/Include/core_cm7.h:
@@ -438,3 +438,5 @@ build/MiniSynth.o: MiniSynth.cpp \
 ../../DaisySP//Source/Utility/smooth_random.h:
 ../../libDaisy//src/dev/oled_ssd130x.h:
 PolyBleP_Saw.h:
+BiquadLP.h:
+LP4th.h:

@@ -14,7 +14,7 @@ OledDisplay<SSD130xI2c128x64Driver> display;
 
 // Synth components
 PolyBleP_Saw		saw1, saw2;
-Svf                	filter;
+Svf              filter;
 AdEnv               env;
 
 // State variables
@@ -53,19 +53,19 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
     // Cutoff frequency
     if(fabsf(pot_vals[0] - last_pots[0]) > 0.005f) {
         last_pots[0] = pot_vals[0];
-        cutoff = 20.f * powf(10000.f/20.f, pot_vals[0]);
+        cutoff = 20.f * powf(20000.f/20.f, pot_vals[0]);
     }
     
     // Resonance
     if(fabsf(pot_vals[1] - last_pots[1]) > 0.005f) {
         last_pots[1] = pot_vals[1];
-        q = fmap(pot_vals[1], 0.1f, 1.5f);
+        q = fmap(pot_vals[1], 0.0f, 1.0f);
     }
     
     // Envelope modulation amount
     if(fabsf(pot_vals[2] - last_pots[2]) > 0.005f) {
         last_pots[2] = pot_vals[2];
-        env_mod_amount = fmap(pot_vals[2], 0.f, 4000.f);
+        env_mod_amount = fmap(pot_vals[2], 0.f, 15000.f);
     }
     
     // Oscillator detune
@@ -124,15 +124,12 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
 
 	// Process audio
 	for (size_t i = 0; i < size; i += 2) {
-		// Generate band‑limited saws (amplitude already set via SetAmp)
-		float osc1 = saw1.Process();
-		float osc2 = saw2.Process();
 		// Mix two oscillators
-		float mixed = 0.5f * (osc1 + osc2);
-		// Run through filter
+		float mixed = 0.5f * (saw1.Process() + saw2.Process());
+		// apply 4th‑order LP:
 		filter.Process(mixed);
 		float filtered = filter.Low();
-		// Write to both left and right channels
+		// write to both channels
 		out[i]     = filtered;
 		out[i + 1] = filtered;
 	}
@@ -191,7 +188,7 @@ void HandleMidi() {
 void InitializeHardware() {
     hw.Configure();
     hw.Init();
-    hw.SetAudioBlockSize(128);
+    hw.SetAudioBlockSize(64);
     
     // Initialize ADC
     AdcChannelConfig adc_cfg[4];
@@ -260,7 +257,7 @@ int main() {
             
             // Round values to avoid unnecessary display updates
             int cut_i = ((int(cutoff + 0.5f) + 5) / 10) * 10;
-            int env_i = ((int(env_mod_amount + 0.5f) + 50) / 10) * 10;
+            int env_i = ((int(env_mod_amount + 0.5f)) / 10) * 10;
             int q_i = int(q * 100 + 0.5f);
             
             // Only update if values changed significantly
