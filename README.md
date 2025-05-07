@@ -4,7 +4,8 @@
 *Requires libDaisy / DaisySP libraries*
 
 ## Features:
-* Detunable 2 OSC Saw Wave Synthesizer
+* Detunable 2 OSC Synthesizer
+* PolyBLEP Saw Waves
 * Variable Cutoff Lowpass Filter with Resonance Control
 * AHR Envelope with Filter Mod Attenuation
 * USB MIDI Interface
