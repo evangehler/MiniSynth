@@ -338,7 +338,7 @@ int main(void)
 				last_q_int   = q_i;
 				last_note	 = current_note;
 	
-				// 5) snapshot into your display vars
+				// 5) snapshot into display vars
 				display_cutoff  = float(cut_i);
 				display_env_amt = float(env_i);
 				display_q       = float(q_i) / 100.0f;
