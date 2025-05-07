@@ -12,6 +12,10 @@ DaisySeed            hw;
 MidiUsbHandler       midi;
 OledDisplay<SSD130xI2c128x64Driver> display;
 
+// OSC2 Switch
+Switch 	osc2Switch;
+bool	osc2Enabled = false; 
+
 // Synth components
 PolyBleP_Saw		saw1, saw2;
 Svf              filter;
@@ -26,6 +30,7 @@ float   detune_ratio = 1.f;
 // Display variables - updated only when values change significantly
 int     last_cut_i = -1, last_env_i = -1, last_q_int = -1, last_note = -2;
 float   display_cutoff = 0.f, display_q = 0.f, display_env_amt = 0.f;
+bool    last_osc2_state = true;
 
 // Envelope state
 enum EnvStage { ENV_IDLE, ENV_ATTACK, ENV_HOLD, ENV_DECAY };
@@ -124,8 +129,14 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
 
 	// Process audio
 	for (size_t i = 0; i < size; i += 2) {
-		// Mix two oscillators
-		float mixed = 0.5f * (saw1.Process() + saw2.Process());
+		// Mix oscillators - include saw2 only if enabled
+		float mixed;
+		if (osc2Enabled) {
+			mixed = 0.5f * (saw1.Process() + saw2.Process());
+		} else {
+			mixed = saw1.Process();
+		}
+		
 		// apply 4th‑order LP:
 		filter.Process(mixed);
 		float filtered = filter.Low();
@@ -133,7 +144,6 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
 		out[i]     = filtered;
 		out[i + 1] = filtered;
 	}
-
 }
 
 // Update display only when values change significantly
@@ -168,6 +178,11 @@ void UpdateDisplay()
     snprintf(buf, sizeof(buf), "Filt Env: %d", int(display_env_amt + 0.5f));
     display.WriteString(buf, Font_6x8, true);
 
+    // Display OSC2 status
+    display.SetCursor(0, 50);
+    snprintf(buf, sizeof(buf), "OSC2: %s", osc2Enabled ? "ON" : "OFF");
+    display.WriteString(buf, Font_6x8, true);
+
     display.Update();
 }
 
@@ -200,6 +215,9 @@ void InitializeHardware() {
     
     // Initialize MIDI
     midi.Init({});
+
+    // Initialize OSC2 Switch
+    osc2Switch.Init(hw.GetPin(20), 100);
     
     // Initialize OLED
     OledDisplay<SSD130xI2c128x64Driver>::Config display_config;
@@ -251,6 +269,12 @@ int main() {
         // Process MIDI messages
         HandleMidi();
         
+        // Read the OSC2 switch state
+        osc2Switch.Debounce();
+        if (osc2Switch.RisingEdge()) {
+            osc2Enabled = !osc2Enabled;
+        }
+        
         // Update display every ~33ms (30Hz)
         if(++frame_counter >= 1000) {
             frame_counter = 0;
@@ -262,11 +286,14 @@ int main() {
             
             // Only update if values changed significantly
             if(cut_i != last_cut_i || env_i != last_env_i || 
-               q_i != last_q_int || current_note != last_note) {
+               q_i != last_q_int || current_note != last_note || 
+               osc2Enabled != last_osc2_state) {
+                
                 last_cut_i = cut_i;
                 last_env_i = env_i; 
                 last_q_int = q_i;
                 last_note = current_note;
+                last_osc2_state = osc2Enabled;
                 
                 display_cutoff = float(cut_i);
                 display_env_amt = float(env_i);
