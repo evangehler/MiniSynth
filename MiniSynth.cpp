@@ -53,7 +53,7 @@ void AudioCallback(AudioHandle::InterleavingInputBuffer in,
     // Cutoff frequency
     if(fabsf(pot_vals[0] - last_pots[0]) > 0.005f) {
         last_pots[0] = pot_vals[0];
-        cutoff = 40.f * powf(10000.f/40.f, pot_vals[0]);
+        cutoff = 20.f * powf(10000.f/20.f, pot_vals[0]);
     }
     
     // Resonance
@@ -260,7 +260,7 @@ int main() {
             
             // Round values to avoid unnecessary display updates
             int cut_i = ((int(cutoff + 0.5f) + 5) / 10) * 10;
-            int env_i = ((int(env_mod_amount + 0.5f) + 50) / 100) * 100;
+            int env_i = ((int(env_mod_amount + 0.5f) + 50) / 10) * 10;
             int q_i = int(q * 100 + 0.5f);
             
             // Only update if values changed significantly

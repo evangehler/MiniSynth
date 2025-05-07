@@ -2,25 +2,24 @@
 
 class PolyBleP_Saw {
 public:
-    /// Must be called once with your audio sample rate
     void Init(float sample_rate) {
         sr    = sample_rate;
         phase = 0.f;
-        amp   = 1.f;       // default full scale
+        amp   = 1.f; 
     }
 
-    /// Set oscillator frequency in Hz
+    // Frequency in Hz
     void SetFreq(float f) {
         freq = f;
         incr = freq / sr;
     }
 
-    /// Set output amplitude (0.0 … 1.0)
+    // Amplitude
     void SetAmp(float a) {
         amp = a;
     }
 
-    /// Call each sample; returns a band‑limited saw in [–amp … +amp]
+    // Call each sample; returns a band‑limited saw
     float Process() {
         phase += incr;
         if(phase >= 1.f) phase -= 1.f;
@@ -36,7 +35,7 @@ public:
     }
 
 private:
-    // PolyBLEP correction core
+    // PolyBLEP correction core (magic)
     float polyBleP(float t, float dt) {
         if(t < dt) {
             float x = t/dt;
