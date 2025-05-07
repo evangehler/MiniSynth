@@ -18,7 +18,7 @@ bool	osc2Enabled = false;
 
 // Synth components
 PolyBleP_Saw		saw1, saw2;
-Svf              filter;
+Svf            filter;
 AdEnv               env;
 
 // State variables
@@ -203,7 +203,7 @@ void HandleMidi() {
 void InitializeHardware() {
     hw.Configure();
     hw.Init();
-    hw.SetAudioBlockSize(64);
+    hw.SetAudioBlockSize(128);
     
     // Initialize ADC
     AdcChannelConfig adc_cfg[4];
@@ -275,8 +275,8 @@ int main() {
             osc2Enabled = !osc2Enabled;
         }
         
-        // Update display every ~33ms (30Hz)
-        if(++frame_counter >= 1000) {
+        // Update display
+        if(++frame_counter >= 2000) {
             frame_counter = 0;
             
             // Round values to avoid unnecessary display updates
